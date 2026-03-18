@@ -1,12 +1,8 @@
 #pragma once
-#include <SFML/Graphics.hpp>
-#include <SFML/Window.hpp>
 #include "imgui.h"
+#include <SFML/Graphics.hpp>
 
-class DebugPanel;
-class FileDialogManager;
-
-class ToolsPanel {
+class SimControlPanel {
 public:
     static constexpr ImGuiWindowFlags PANEL_FLAGS =
         ImGuiWindowFlags_NoMove     |
@@ -15,6 +11,9 @@ public:
         ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoScrollbar;
 
-    void draw(float scale, sf::RenderWindow& window,
-              DebugPanel& debug, FileDialogManager& fileDialog);
+    void draw(float scale, sf::Vector2u windowSize,
+              bool& pause, float& simulationSpeed);
+
+private:
+    int fastMode = 0;
 };
