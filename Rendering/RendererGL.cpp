@@ -11,6 +11,7 @@
 #include <Engine/metrics/Profiler.h>
 
 #include "Engine/physics/Bond.h"
+#include "Engine/physics/integrators/VerletCL.h"
 #include "RendererGL.h"
 
 #ifdef __APPLE__

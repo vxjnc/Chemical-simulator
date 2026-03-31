@@ -60,8 +60,10 @@ void VerletCL::pipeline(AtomStorage& atomStorage, SimBox& box, ForceField& force
     }
 
     openclManager.runIntegrate();
-    openclManager.downloadPositions(atomStorage.xDataSpan(), atomStorage.yDataSpan(), atomStorage.zDataSpan());
-    openclManager.finish();
+
+    // openclManager.downloadPositions(atomStorage.xDataSpan(), atomStorage.yDataSpan(), atomStorage.zDataSpan());
+    // openclManager.finish();
+
     openclManager.runConfineToBox();
     openclManager.swapAndClearForces();
     openclManager.runComputeForces();

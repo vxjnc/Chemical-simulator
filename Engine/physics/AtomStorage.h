@@ -109,7 +109,6 @@ public:
     std::span<float> yDataSpan() const { return {y_, count_}; }
     std::span<float> zDataSpan() const { return {z_, count_}; }
 
-
     float* vxData() { return vx_; }
     float* vyData() { return vy_; }
     float* vzData() { return vz_; }

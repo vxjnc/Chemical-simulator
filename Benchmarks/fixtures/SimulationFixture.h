@@ -53,6 +53,7 @@ public:
         atomCount_  = static_cast<int>(state.range(0));
         box_ = std::make_unique<SimBox>(Vec3f(160, 160, 160));
         simulation_ = std::make_unique<Simulation>(*box_);
+        simulation_->setIntegrator(Integrator::Scheme::VerletCL);
     }
 
     void TearDown(benchmark::State&) override {
