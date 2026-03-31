@@ -17,6 +17,7 @@ private:
     {
         cl::Kernel integratePositions;
         cl::Kernel computeForces;
+        cl::Kernel correctVelocities;
     } kernels;
 
     struct
@@ -24,6 +25,7 @@ private:
         cl::Buffer x, y, z;
         cl::Buffer vx, vy, vz;
         cl::Buffer fx, fy, fz;
+        cl::Buffer pfx, pfy, pfz;
         cl::Buffer energy;
         cl::Buffer invMass;
         cl::Buffer neighbors;
@@ -70,6 +72,9 @@ public:
                         std::span<const float> fx,
                         std::span<const float> fy,
                         std::span<const float> fz,
+                        std::span<const float> pfx,
+                        std::span<const float> pfy,
+                        std::span<const float> pfz,
                         std::span<const float> invMass)
     {
         atomCount = x.size();
@@ -96,6 +101,9 @@ public:
         buffers.fx      = createBuffer(CL_MEM_READ_WRITE, fx.data());
         buffers.fy      = createBuffer(CL_MEM_READ_WRITE, fy.data());
         buffers.fz      = createBuffer(CL_MEM_READ_WRITE, fz.data());
+        buffers.pfx     = createBuffer(CL_MEM_READ_WRITE, pfx.data());
+        buffers.pfy     = createBuffer(CL_MEM_READ_WRITE, pfy.data());
+        buffers.pfz     = createBuffer(CL_MEM_READ_WRITE, pfz.data());
         buffers.invMass = createBuffer(CL_MEM_READ_ONLY,  invMass.data());
     }
 
@@ -157,6 +165,7 @@ public:
 
         kernels.integratePositions = cl::Kernel(program, "integrate_positions");
         kernels.computeForces      = cl::Kernel(program, "compute_forces");
+        kernels.correctVelocities  = cl::Kernel(program, "correct_velocities");
     }
 
     void uploadForces(std::span<const float> fx,
@@ -177,8 +186,9 @@ public:
         queue.enqueueWriteBuffer(buffers.vz, CL_FALSE, 0, atomCount * sizeof(float), vz.data());
     }
 
-    void setupArgs(float dt)
+    void setupIntegrateArgs(float dt)
     {
+        cached.dt = dt;
         int i = 0;
         auto& k = kernels.integratePositions;
         k.setArg(i++, buffers.x);
@@ -200,6 +210,12 @@ public:
                             float gravX, float gravY, float gravZ,
                             float epsilon, uint32_t typeCount)
     {
+        cached.wallMinX = wallMinX; cached.wallMinY = wallMinY; cached.wallMinZ = wallMinZ;
+        cached.wallMaxX = wallMaxX; cached.wallMaxY = wallMaxY; cached.wallMaxZ = wallMaxZ;
+        cached.gravX = gravX; cached.gravY = gravY; cached.gravZ = gravZ;
+        cached.epsilon = epsilon;
+        cached.typeCount = typeCount;
+
         int i = 0;
         auto& k = kernels.computeForces;
         k.setArg(i++, buffers.x);
@@ -221,6 +237,24 @@ public:
         k.setArg(i++, static_cast<cl_int>(atomCount));
     }
 
+    void setupCorrectArgs(float dt)
+    {
+        cached.dt = dt;
+        int i = 0;
+        auto& k = kernels.correctVelocities;
+        k.setArg(i++, buffers.vx);
+        k.setArg(i++, buffers.vy);
+        k.setArg(i++, buffers.vz);
+        k.setArg(i++, buffers.fx);
+        k.setArg(i++, buffers.fy);
+        k.setArg(i++, buffers.fz);
+        k.setArg(i++, buffers.pfx);
+        k.setArg(i++, buffers.pfy);
+        k.setArg(i++, buffers.pfz);
+        k.setArg(i++, buffers.invMass);
+        k.setArg(i++, dt);
+        k.setArg(i++, static_cast<cl_int>(atomCount));
+    }
 
     void runIntegrate()
     {
@@ -235,6 +269,14 @@ public:
     {
         size_t globalSize = ((atomCount + maxWorkGroupSize - 1) / maxWorkGroupSize) * maxWorkGroupSize;
         queue.enqueueNDRangeKernel(kernels.computeForces, cl::NullRange,
+                                cl::NDRange(globalSize),
+                                cl::NDRange(maxWorkGroupSize));
+    }
+
+    void runCorrect()
+    {
+        size_t globalSize = ((atomCount + maxWorkGroupSize - 1) / maxWorkGroupSize) * maxWorkGroupSize;
+        queue.enqueueNDRangeKernel(kernels.correctVelocities, cl::NullRange,
                                 cl::NDRange(globalSize),
                                 cl::NDRange(maxWorkGroupSize));
     }
@@ -258,4 +300,35 @@ public:
 
 
     void finish() { queue.finish(); }
+
+    void swapAndClearForces()
+    {
+        // своп fx <-> pfx буферов
+        std::swap(buffers.fx, buffers.pfx);
+        std::swap(buffers.fy, buffers.pfy);
+        std::swap(buffers.fz, buffers.pfz);
+
+        // обнуляем fx (теперь это бывший pfx) через fill
+        float zero = 0.0f;
+        queue.enqueueFillBuffer(buffers.fx, zero, 0, atomCount * sizeof(float));
+        queue.enqueueFillBuffer(buffers.fy, zero, 0, atomCount * sizeof(float));
+        queue.enqueueFillBuffer(buffers.fz, zero, 0, atomCount * sizeof(float));
+
+        // после свопа args у kernels устарели — переустанавливаем
+        setupIntegrateArgs(cached.dt);
+        setupComputeForcesArgs(
+            cached.wallMinX, cached.wallMinY, cached.wallMinZ,
+            cached.wallMaxX, cached.wallMaxY, cached.wallMaxZ,
+            cached.gravX, cached.gravY, cached.gravZ, cached.epsilon, cached.typeCount);
+        setupCorrectArgs(cached.dt);
+    }
+
+    struct CachedParams {
+        float dt;
+        float wallMinX, wallMinY, wallMinZ;
+        float wallMaxX, wallMaxY, wallMaxZ;
+        float gravX, gravY, gravZ;
+        float epsilon;
+        uint32_t typeCount;
+    } cached;
 };

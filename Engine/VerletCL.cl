@@ -108,3 +108,62 @@ kernel void integrate_positions(global float *x, global float *y,
   y[i] += (vy[i] * damping + fy[i] * invMass[i] * half_dt) * dt;
   z[i] += (vz[i] * damping + fz[i] * invMass[i] * half_dt) * dt;
 }
+
+kernel void correct_velocities(global float *vx, global float *vy,
+                               global float *vz, global const float *fx,
+                               global const float *fy, global const float *fz,
+                               global const float *pfx, global const float *pfy,
+                               global const float *pfz,
+                               global const float *invMass, const float dt,
+                               const int n) {
+  const int i = get_global_id(0);
+  if (i >= n)
+    return;
+
+  const float halfDtInvMass = 0.5f * dt * invMass[i];
+
+  vx[i] += (pfx[i] + fx[i]) * halfDtInvMass;
+  vy[i] += (pfy[i] + fy[i]) * halfDtInvMass;
+  vz[i] += (pfz[i] + fz[i]) * halfDtInvMass;
+}
+
+kernel void confine_to_box(global float *x, global float *y, global float *z,
+                           global float *vx, global float *vy, global float *vz,
+                           const float maxX, const float maxY, const float maxZ,
+                           const int n) {
+  const int i = get_global_id(0);
+  if (i >= n)
+    return;
+
+  const float restitution = 0.8f;
+
+  if (x[i] < 0.0f) {
+    x[i] = 0.0f;
+    if (vx[i] < 0.0f)
+      vx[i] = -vx[i] * restitution;
+  } else if (x[i] > maxX) {
+    x[i] = maxX;
+    if (vx[i] > 0.0f)
+      vx[i] = -vx[i] * restitution;
+  }
+
+  if (y[i] < 0.0f) {
+    y[i] = 0.0f;
+    if (vy[i] < 0.0f)
+      vy[i] = -vy[i] * restitution;
+  } else if (y[i] > maxY) {
+    y[i] = maxY;
+    if (vy[i] > 0.0f)
+      vy[i] = -vy[i] * restitution;
+  }
+
+  if (z[i] < 0.0f) {
+    z[i] = 0.0f;
+    if (vz[i] < 0.0f)
+      vz[i] = -vz[i] * restitution;
+  } else if (z[i] > maxZ) {
+    z[i] = maxZ;
+    if (vz[i] > 0.0f)
+      vz[i] = -vz[i] * restitution;
+  }
+}

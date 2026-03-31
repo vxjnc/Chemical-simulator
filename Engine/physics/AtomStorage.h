@@ -105,6 +105,10 @@ public:
     float* xData() const { return x_; }
     float* yData() const { return y_; }
     float* zData() const { return z_; }
+    std::span<float> xDataSpan() const { return {x_, count_}; }
+    std::span<float> yDataSpan() const { return {y_, count_}; }
+    std::span<float> zDataSpan() const { return {z_, count_}; }
+
 
     float* vxData() { return vx_; }
     float* vyData() { return vy_; }
@@ -112,6 +116,9 @@ public:
     const float* vxData() const { return vx_; }
     const float* vyData() const { return vy_; }
     const float* vzData() const { return vz_; }
+    std::span<float> vxDataSpan() const { return {vx_, count_}; }
+    std::span<float> vyDataSpan() const { return {vy_, count_}; }
+    std::span<float> vzDataSpan() const { return {vz_, count_}; }
 
     float* fxData() { return fx_; }
     float* fyData() { return fy_; }
@@ -125,10 +132,6 @@ public:
     float* invMassData() { return invMass_; }
 
     AtomData::Type* atomTypeData() { return atomType_.data(); }
-
-    std::span<float> xDataSpan() const { return {x_, count_}; }
-    std::span<float> yDataSpan() const { return {y_, count_}; }
-    std::span<float> zDataSpan() const { return {z_, count_}; }
 
     AtomStorage() = default;
     AtomStorage(const AtomStorage&) = delete;

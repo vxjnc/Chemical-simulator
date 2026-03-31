@@ -46,28 +46,29 @@ void VerletCL::pipeline(AtomStorage& atomStorage, SimBox& box, ForceField& force
             {atomStorage.fxData(), n},
             {atomStorage.fyData(), n},
             {atomStorage.fzData(), n},
+            {atomStorage.pfxData(), n},
+            {atomStorage.pfyData(), n},
+            {atomStorage.pfzData(), n},
             {atomStorage.invMassData(), n}
         );
         openclManager.setupLJTable(flatLJ);
         openclManager.setupAtomTypes(types);
-        openclManager.setupArgs(dt);
+        openclManager.setupIntegrateArgs(dt);
         buffersReady = true;
     }
 
-    // predict на GPU
-    openclManager.uploadVelocities({atomStorage.vxData(), n}, {atomStorage.vyData(), n}, {atomStorage.vzData(), n});
     openclManager.runIntegrate();
-    openclManager.downloadPositions({atomStorage.xData(), n}, {atomStorage.yData(), n}, {atomStorage.zData(), n});
+    openclManager.downloadPositions(atomStorage.xDataSpan(), atomStorage.yDataSpan(), atomStorage.zDataSpan());
     openclManager.finish();
-
+    
     StepOps::confineToBox(atomStorage, box);
 
-    // силы на GPU
-    openclManager.runComputeForces();
-    openclManager.downloadForces({atomStorage.fxData(), n}, {atomStorage.fyData(), n}, {atomStorage.fzData(), n});
-    openclManager.finish();
+    openclManager.swapAndClearForces();
 
-    correct(atomStorage, dt);
+    openclManager.runComputeForces();
+
+    openclManager.runCorrect();
+    openclManager.finish();
 }
 
 void VerletCL::predict(AtomStorage& atomStorage, float dt) {
