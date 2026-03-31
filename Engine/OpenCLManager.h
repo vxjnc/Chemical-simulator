@@ -18,6 +18,7 @@ private:
         cl::Kernel integratePositions;
         cl::Kernel computeForces;
         cl::Kernel correctVelocities;
+        cl::Kernel confineToBox;
     } kernels;
 
     struct
@@ -166,6 +167,7 @@ public:
         kernels.integratePositions = cl::Kernel(program, "integrate_positions");
         kernels.computeForces      = cl::Kernel(program, "compute_forces");
         kernels.correctVelocities  = cl::Kernel(program, "correct_velocities");
+        kernels.confineToBox = cl::Kernel(program, "confine_to_box");
     }
 
     void uploadForces(std::span<const float> fx,
@@ -256,6 +258,26 @@ public:
         k.setArg(i++, static_cast<cl_int>(atomCount));
     }
 
+    void setupConfineToBoxArgs(float maxX, float maxY, float maxZ)
+    {
+        cached.maxX = maxX;
+        cached.maxY = maxY;
+        cached.maxZ = maxZ;
+
+        int i = 0;
+        auto& k = kernels.confineToBox;
+        k.setArg(i++, buffers.x);
+        k.setArg(i++, buffers.y);
+        k.setArg(i++, buffers.z);
+        k.setArg(i++, buffers.vx);
+        k.setArg(i++, buffers.vy);
+        k.setArg(i++, buffers.vz);
+        k.setArg(i++, maxX);
+        k.setArg(i++, maxY);
+        k.setArg(i++, maxZ);
+        k.setArg(i++, static_cast<cl_int>(atomCount));
+    }
+
     void runIntegrate()
     {
         size_t globalSize = ((atomCount + maxWorkGroupSize - 1) / maxWorkGroupSize) * maxWorkGroupSize;
@@ -277,6 +299,14 @@ public:
     {
         size_t globalSize = ((atomCount + maxWorkGroupSize - 1) / maxWorkGroupSize) * maxWorkGroupSize;
         queue.enqueueNDRangeKernel(kernels.correctVelocities, cl::NullRange,
+                                cl::NDRange(globalSize),
+                                cl::NDRange(maxWorkGroupSize));
+    }
+
+    void runConfineToBox()
+    {
+        size_t globalSize = ((atomCount + maxWorkGroupSize - 1) / maxWorkGroupSize) * maxWorkGroupSize;
+        queue.enqueueNDRangeKernel(kernels.confineToBox, cl::NullRange,
                                 cl::NDRange(globalSize),
                                 cl::NDRange(maxWorkGroupSize));
     }
@@ -321,6 +351,7 @@ public:
             cached.wallMaxX, cached.wallMaxY, cached.wallMaxZ,
             cached.gravX, cached.gravY, cached.gravZ, cached.epsilon, cached.typeCount);
         setupCorrectArgs(cached.dt);
+        setupConfineToBoxArgs(cached.maxX, cached.maxY, cached.maxZ);
     }
 
     struct CachedParams {
@@ -330,5 +361,6 @@ public:
         float gravX, gravY, gravZ;
         float epsilon;
         uint32_t typeCount;
+        float maxX, maxY, maxZ;
     } cached;
 };

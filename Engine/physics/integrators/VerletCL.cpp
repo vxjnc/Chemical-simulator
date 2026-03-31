@@ -52,6 +52,8 @@ void VerletCL::pipeline(AtomStorage& atomStorage, SimBox& box, ForceField& force
             {atomStorage.invMassData(), n}
         );
         openclManager.setupLJTable(flatLJ);
+        const Vec3f max = box.size - Vec3f(1.0, 1.0, 1.0);
+        openclManager.setupConfineToBoxArgs(max.x, max.y, max.z);
         openclManager.setupAtomTypes(types);
         openclManager.setupIntegrateArgs(dt);
         buffersReady = true;
@@ -60,13 +62,9 @@ void VerletCL::pipeline(AtomStorage& atomStorage, SimBox& box, ForceField& force
     openclManager.runIntegrate();
     openclManager.downloadPositions(atomStorage.xDataSpan(), atomStorage.yDataSpan(), atomStorage.zDataSpan());
     openclManager.finish();
-    
-    StepOps::confineToBox(atomStorage, box);
-
+    openclManager.runConfineToBox();
     openclManager.swapAndClearForces();
-
     openclManager.runComputeForces();
-
     openclManager.runCorrect();
     openclManager.finish();
 }
