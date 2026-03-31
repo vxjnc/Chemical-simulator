@@ -27,6 +27,8 @@ Integrator::SchemeVariant Integrator::makeSchemeImpl(Scheme scheme) {
         return RK4Scheme{};
     case Scheme::Langevin:
         return LangevinScheme{};
+    case Scheme::VerletCL:
+        return VerletCL{};
     default:
         return VerletScheme{};
     }

@@ -41,6 +41,7 @@ unset(imgui_SOURCE_DIR CACHE)
 unset(imgui_BINARY_DIR CACHE)
 
 find_package(OpenGL REQUIRED)
+find_package(OpenCL REQUIRED)
 
 # --- Настройка SFML ---
 FetchContent_Declare(
@@ -149,6 +150,7 @@ target_link_libraries(chemical_simulator_lib PUBLIC
     ImGuiFileDialog_lib
     glad
     OpenGL::GL
+    OpenCL::OpenCL
     glm::glm
 )
 

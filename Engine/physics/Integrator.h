@@ -12,6 +12,7 @@ class SimBox;
 #include "integrators/LangevinScheme.h"
 #include "integrators/RK4Scheme.h"
 #include "integrators/VerletScheme.h"
+#include "integrators/VerletCL.h"
 
 class Integrator {
 public:
@@ -20,6 +21,7 @@ public:
         KDK,         // Kick-Drift-Kick: симплектическая схема, удобна для поэтапного обновления сил
         RK4,         // Runge-Kutta 4-го порядка: высокая точность на шаг, но дороже по вычислениям
         Langevin,    // стохастический интегратор с термостатом (трение + случайный шум)
+        VerletCL,    // OpenCL версия Velocity Verlet
     };
 
     Integrator();
@@ -30,7 +32,7 @@ public:
     void step(AtomStorage& atomStorage, SimBox& box, ForceField& forceField, NeighborList* neighborList, float dt);
 
 private:
-    using SchemeVariant = std::variant<VerletScheme, KDKScheme, RK4Scheme, LangevinScheme>;
+    using SchemeVariant = std::variant<VerletScheme, KDKScheme, RK4Scheme, LangevinScheme, VerletCL>;
 
     static SchemeVariant makeSchemeImpl(Scheme scheme);
 

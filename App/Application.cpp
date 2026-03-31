@@ -36,6 +36,7 @@ std::string_view schemeName(Integrator::Scheme scheme) {
         case Integrator::Scheme::KDK:      return "KDK (Kick-Drift-Kick)";
         case Integrator::Scheme::RK4:      return "Runge-Kutta 4";
         case Integrator::Scheme::Langevin: return "Langevin";
+        case Integrator::Scheme::VerletCL: return "OpenCL Velocity Verlet";
     }
     return "Unknown";
 }
@@ -205,7 +206,7 @@ int Application::run() {
 
     SimBox box(Vec3f(50, 50, 50));
     Simulation simulation(box);
-    simulation.setIntegrator(Integrator::Scheme::Verlet);
+    simulation.setIntegrator(Integrator::Scheme::VerletCL);
     Scenes::crystal(simulation, 25, AtomData::Type::Z, false);
 
     std::unique_ptr<IRenderer> renderer = std::make_unique<Renderer2D>(window, gameView, simulation.sim_box);
