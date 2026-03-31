@@ -18,6 +18,24 @@ void VerletCL::pipeline(AtomStorage& atomStorage, SimBox& box, ForceField& force
     
     if (!buffersReady)
     {
+        constexpr size_t N = 119;
+        std::vector<float> flatLJ(N * N * 4);
+        for (size_t i = 0; i < N; ++i)
+        {
+            for (size_t j = 0; j < N; ++j) {
+                const auto& p = forceField.ljPairTable[i][j];
+                flatLJ[(i * N + j) * 4 + 0] = p.forceC6;
+                flatLJ[(i * N + j) * 4 + 1] = p.forceC12;
+                flatLJ[(i * N + j) * 4 + 2] = p.potentialC6;
+                flatLJ[(i * N + j) * 4 + 3] = p.potentialC12;
+            }
+        }
+
+        std::vector<uint32_t> types(n);
+        for (size_t i = 0; i < n; ++i)
+            types[i] = static_cast<uint32_t>(atomStorage.type(i));
+
+
         VerletCL::openclManager.setupResources(
             {atomStorage.xData(), n},
             {atomStorage.yData(), n},
@@ -30,15 +48,25 @@ void VerletCL::pipeline(AtomStorage& atomStorage, SimBox& box, ForceField& force
             {atomStorage.fzData(), n},
             {atomStorage.invMassData(), n}
         );
-        VerletCL::openclManager.setupArgs(dt);
-        VerletCL::buffersReady = true;
+        openclManager.setupLJTable(flatLJ);
+        openclManager.setupAtomTypes(types);
+        openclManager.setupArgs(dt);
+        buffersReady = true;
     }
 
-    // Расчет новых позиций
-    StepOps::predictAndSync(atomStorage, box, dt, &predict);
-    // Расчет сил
-    StepOps::computeForces(atomStorage, box, forceField, neighborList, dt);
-    // Корректировка скоростей
+    // predict на GPU
+    openclManager.uploadVelocities({atomStorage.vxData(), n}, {atomStorage.vyData(), n}, {atomStorage.vzData(), n});
+    openclManager.runIntegrate();
+    openclManager.downloadPositions({atomStorage.xData(), n}, {atomStorage.yData(), n}, {atomStorage.zData(), n});
+    openclManager.finish();
+
+    StepOps::confineToBox(atomStorage, box);
+
+    // силы на GPU
+    openclManager.runComputeForces();
+    openclManager.downloadForces({atomStorage.fxData(), n}, {atomStorage.fyData(), n}, {atomStorage.fzData(), n});
+    openclManager.finish();
+
     correct(atomStorage, dt);
 }
 

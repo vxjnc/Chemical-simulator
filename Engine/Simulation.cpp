@@ -30,6 +30,15 @@ void Simulation::update(float dt) {
     if (useNeighborList_ && neighborList.needsRebuild(atomStorage)) {
         neighborList.build(atomStorage, sim_box);
         neighborList.recordRebuild(sim_step);
+
+        VerletCL::openclManager.setupNeighborList(neighborList.neighbors(), neighborList.offsets());
+
+        VerletCL::openclManager.setupComputeForcesArgs(
+            forceField.wallMinX, forceField.wallMinY, forceField.wallMinZ,
+            forceField.wallMaxX, forceField.wallMaxY, forceField.wallMaxZ,
+            forceField.static_force.x, forceField.static_force.y, forceField.static_force.z,
+            Consts::Epsilon, 119
+        );
     }
     ++sim_step;
 }

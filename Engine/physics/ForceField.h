@@ -20,7 +20,6 @@ public:
     void setGravity(Vec3f gravity = Vec3f(0, 5, 0)) { static_force = gravity; }
     Vec3f getGravity() const { return static_force; }
 
-private:
     struct LJParams {
         float forceC6 = 0.0f;      // 24 * eps * a^6
         float forceC12 = 0.0f;     // 48 * eps * a^12
@@ -29,9 +28,18 @@ private:
     };
 
     static constexpr size_t TypeCount = static_cast<size_t>(AtomData::Type::COUNT);
-    using LJPairTable = std::array<std::array<LJParams, TypeCount>, TypeCount>;
     using LJPairRow = std::array<LJParams, TypeCount>;
+    using LJPairTable = std::array<LJPairRow, TypeCount>;
+    LJPairTable ljPairTable;
 
+    float wallMinX = 0.0f;
+    float wallMinY = 0.0f;
+    float wallMinZ = 0.0f;
+    float wallMaxX = 0.0f;
+    float wallMaxY = 0.0f;
+    float wallMaxZ = 0.0f;
+    Vec3f static_force;
+private:
     static LJPairTable buildLJPairTable();
 
     static void applyWall(float coord, float& force, float min, float max);
@@ -40,13 +48,4 @@ private:
     void ComputeForces(AtomStorage& atoms, SimBox& box, NeighborList* neighborList) const;
     void pairNonBondedInteraction(AtomStorage& atoms, uint32_t bIndex, const LJPairRow& ljPairRow, float& forceX, float& forceY, float& forceZ, float posX, float posY, float posZ, float& potenE) const;
     void applyGravityForce(float& forceX, float& forceY, float& forceZ) const;
-
-    Vec3f static_force;
-    LJPairTable ljPairTable;
-    float wallMinX = 0.0f;
-    float wallMinY = 0.0f;
-    float wallMinZ = 0.0f;
-    float wallMaxX = 0.0f;
-    float wallMaxY = 0.0f;
-    float wallMaxZ = 0.0f;
 };
